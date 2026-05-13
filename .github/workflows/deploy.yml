@@ -1,0 +1,62 @@
+name: FindAny CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+
+    # Step 1: Download Repository Code
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # Step 2: Setup Docker Buildx
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    # Step 3: Verify Docker Compose
+    - name: Validate Docker Compose
+      run: docker compose config
+
+    # Step 4: Build Containers
+    - name: Build Docker Containers
+      run: docker compose build
+
+    # Step 5: Run Containers for Testing
+    - name: Start Containers
+      run: docker compose up -d
+
+    # Step 6: Wait for Backend Startup
+    - name: Wait for Services
+      run: sleep 20
+
+    # Step 7: Test Flask API Health
+    - name: Health Check API
+      run: curl -f http://localhost:5000/api/health
+
+    # Step 8: Stop Containers
+    - name: Stop Containers
+      run: docker compose down
+
+    # Step 9: Deploy to VPS Server
+    - name: Deploy to Production Server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          cd /var/www/findany
+
+          git pull origin main
+
+          docker compose down
+
+          docker compose up --build -d
+
+          docker image prune -f
